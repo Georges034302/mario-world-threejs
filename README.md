@@ -11,7 +11,7 @@ This project is a lightweight interactive web experience that combines:
 - Keyboard-driven mode switching (normal, super, superfly)
 - Continuous animation loop with motion smoothing and collision rules
 
-Open [index.html](index.html) in a browser to run the project.
+Live demo: [https://georges034302.github.io/mario-world-threejs/](https://georges034302.github.io/mario-world-threejs/)
 
 ## Project Structure (Tree)
 
