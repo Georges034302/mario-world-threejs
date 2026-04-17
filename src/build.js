@@ -24,7 +24,7 @@ function updateBackgroundSize() {
 }
 
 function createBackground() {
-    var bgTexture = textureLoader.load('background.png');
+    var bgTexture = textureLoader.load('media/background.png');
     bgTexture.wrapS = THREE.RepeatWrapping;
     bgTexture.wrapT = THREE.ClampToEdgeWrapping;
     bgTexture.repeat.set(1, 1);
@@ -79,7 +79,7 @@ function createVideoSprite(path, fallbackPath, scaleX, scaleY, x, y, z) {
 
 
     video.preload = 'auto';
-    if (path === 'ghost.mp4') {
+    if (path === 'media/ghost.mp4') {
         video.playbackRate = 0.18;
     }
 
@@ -111,7 +111,7 @@ function createVideoSprite(path, fallbackPath, scaleX, scaleY, x, y, z) {
     sprite.scale.set(scaleX, scaleY, 1);
     sprite.position.set(x, y, z);
 
-    if (path === 'ghost.mp4') {
+    if (path === 'media/ghost.mp4') {
         ghostVideo = video;
     }
 
@@ -121,13 +121,13 @@ function createVideoSprite(path, fallbackPath, scaleX, scaleY, x, y, z) {
             return;
         }
         started = true;
-        if (path === 'ghost.mp4') {
+        if (path === 'media/ghost.mp4') {
             video.playbackRate = 0.18;
         }
         video.play().catch(function() {
             scene.remove(sprite);
             var fallback = createImageSprite(fallbackPath, scaleX, scaleY, x, y, z);
-            if (path === 'ghost.mp4') {
+            if (path === 'media/ghost.mp4') {
                 ghostSprite = fallback;
             }
             scene.add(fallback);
@@ -144,7 +144,7 @@ function createMarioOverlay() {
         return;
     }
 
-    marioOverlay.src = 'mario.gif';
+    marioOverlay.src = 'media/mario.gif';
     marioOverlay.dataset.mode = 'normal';
     marioOverlay.style.position = 'fixed';
     marioOverlay.style.left = '50%';
@@ -166,6 +166,6 @@ function addShapes() {
 
     ghostCurrentX = ghostBaseX;
     ghostCurrentY = ghostBaseY;
-    ghostSprite = createVideoSprite('ghost.mp4', 'ghost.gif', 1.5, 1.5, ghostCurrentX, ghostCurrentY, -1.5);
+    ghostSprite = createVideoSprite('media/ghost.mp4', 'media/ghost.gif', 1.5, 1.5, ghostCurrentX, ghostCurrentY, -1.5);
     scene.add(ghostSprite);
 }

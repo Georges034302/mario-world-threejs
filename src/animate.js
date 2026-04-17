@@ -97,7 +97,7 @@ function updateMarioOverlayImage() {
         return;
     }
 
-    nextSource = marioMode === 'normal' ? 'mario.gif' : 'super.gif';
+    nextSource = marioMode === 'normal' ? 'media/mario.gif' : 'media/super.gif';
     if (marioOverlay.getAttribute('src') !== nextSource) {
         marioOverlay.setAttribute('src', nextSource);
     }

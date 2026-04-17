@@ -1,13 +1,30 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta http-equiv="refresh" content="0; url=marioworld.html" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Mario World</title>
-  </head>
-  <body>
-    <p>Redirecting to Mario World...</p>
-    <p>If you are not redirected, open <a href="marioworld.html">marioworld.html</a>.</p>
-  </body>
+    <head>
+        <meta charset="UTF-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <script src="js/three.min.js"></script>
+        <link rel="icon" href="data:,">
+        <link rel="stylesheet" href="css/layout.css?v=25">
+        <title>Mario World</title>
+    </head>
+
+    <body>
+        <div id="info">
+            <H1 id="pageTitle">Mario World</H1>
+        </div>
+        <div id="quickControls" aria-label="Quick controls">
+            <strong>Quick Controls</strong>
+            <span>← slow</span>
+            <span>→ fast</span>
+            <span>↑ super</span>
+            <span>↑ + → superfly</span>
+        </div>
+        <img id="marioOverlay" src="media/mario.gif" alt="Mario">
+        <script src="src/setup.js?v=25"></script>
+        <script src="src/build.js?v=25"></script>
+        <script src="src/animate.js?v=25"></script>
+        <script src="src/run.js?v=25"></script>
+    </body>
 </html>
