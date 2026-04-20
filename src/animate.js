@@ -38,6 +38,158 @@ var runSettings = {
 };
 var currentBackgroundSpeed = runSettings.idle.backgroundSpeed;
 var currentGhostPlaybackRate = runSettings.idle.ghostPlaybackRate;
+var upOnlyLiftEasing = 1.15;
+var superflyLiftEasing = 0.95;
+var groundReturnEasing = 1.4;
+var airborneDropEasing = 0.5;
+var minAirborneDropSpeed = 0.95;
+var ghostReturnEasing = 0.9;
+var gameState = 'ready';
+var gameOverDistance = 0.62;
+var gameStatusOverlay = document.getElementById('gameStatus');
+
+function setStatusMessage(text, cssClass, isVisible) {
+    if (!gameStatusOverlay) {
+        return;
+    }
+
+    gameStatusOverlay.textContent = text;
+    gameStatusOverlay.classList.remove('game-over');
+
+    if (cssClass) {
+        gameStatusOverlay.classList.add(cssClass);
+    }
+
+    gameStatusOverlay.style.display = isVisible ? 'block' : 'none';
+}
+
+function worldToScreen(worldX, worldY, worldZ) {
+    var projected = new THREE.Vector3(worldX, worldY, worldZ);
+    projected.project(camera);
+
+    return {
+        x: (projected.x * 0.5 + 0.5) * window.innerWidth,
+        y: (-projected.y * 0.5 + 0.5) * window.innerHeight
+    };
+}
+
+function positionGameOverMessage() {
+    var collisionPoint;
+    var offsetTop;
+
+    if (!gameStatusOverlay) {
+        return;
+    }
+
+    collisionPoint = worldToScreen((marioBaseX + ghostCurrentX) * 0.5, Math.max(marioBaseY, ghostCurrentY) + 1.25, -1.4);
+    offsetTop = Math.max(28, collisionPoint.y - 38);
+    gameStatusOverlay.style.left = collisionPoint.x + 'px';
+    gameStatusOverlay.style.top = offsetTop + 'px';
+    gameStatusOverlay.style.transform = 'translate(-50%, -100%)';
+}
+
+function stopAllInput() {
+    runKeyState.ArrowLeft = false;
+    runKeyState.ArrowRight = false;
+    runKeyState.ArrowUp = false;
+}
+
+function setAllVideoPlayback(shouldPlay) {
+    for (var i = 0; i < animatedVideos.length; i += 1) {
+        var video = animatedVideos[i];
+
+        if (video.readyState < 2) {
+            continue;
+        }
+
+        if (shouldPlay) {
+            if (video.paused) {
+                video.play().catch(function() {});
+            }
+        } else if (!video.paused) {
+            video.pause();
+        }
+    }
+}
+
+function startOrResumeGame() {
+    gameState = 'running';
+    setStatusMessage('', '', false);
+    clock.getDelta();
+    setAllVideoPlayback(true);
+}
+
+function pauseGame() {
+    gameState = 'paused';
+    stopAllInput();
+    updateRunMode();
+    setStatusMessage('Paused', '', true);
+    if (gameStatusOverlay) {
+        gameStatusOverlay.style.left = '50%';
+        gameStatusOverlay.style.top = '50%';
+        gameStatusOverlay.style.transform = 'translate(-50%, -50%)';
+    }
+    setAllVideoPlayback(false);
+}
+
+function restartGame() {
+    gameState = 'running';
+    stopAllInput();
+    runMode = 'idle';
+    marioMode = 'normal';
+    marioBaseY = marioGroundY;
+    ghostCurrentX = ghostBaseX;
+    ghostCurrentY = ghostBaseY;
+    currentBackgroundSpeed = runSettings.idle.backgroundSpeed;
+    currentGhostPlaybackRate = runSettings.idle.ghostPlaybackRate;
+    scrollOffset = 0;
+    backgroundRotation = 0;
+
+    if (backgroundMaterial && backgroundMaterial.map) {
+        backgroundMaterial.map.offset.x = scrollOffset;
+        backgroundMaterial.map.rotation = backgroundRotation;
+    }
+
+    if (ghostSprite) {
+        ghostSprite.position.x = ghostCurrentX;
+        ghostSprite.position.y = ghostCurrentY;
+    }
+
+    updateRunMode();
+    updateMarioOverlayImage();
+    syncMarioOverlay();
+    setStatusMessage('', '', false);
+    clock.getDelta();
+    setAllVideoPlayback(true);
+}
+
+function triggerGameOver() {
+    gameState = 'gameover';
+    stopAllInput();
+    runMode = 'idle';
+    currentBackgroundSpeed = runSettings.idle.backgroundSpeed;
+    positionGameOverMessage();
+    setStatusMessage('Game Over', 'game-over', true);
+    setAllVideoPlayback(false);
+}
+
+function hasGhostMarioCollision() {
+    var deltaX;
+    var deltaY;
+
+    if (!ghostSprite) {
+        return false;
+    }
+
+    deltaX = ghostCurrentX - marioBaseX;
+    deltaY = ghostCurrentY - marioBaseY;
+
+    return Math.sqrt((deltaX * deltaX) + (deltaY * deltaY)) < gameOverDistance;
+}
+
+function isMarioAirborne() {
+    return marioBaseY > (marioGroundY + 0.03);
+}
 
 function syncMarioOverlay() {
     var distance;
@@ -87,6 +239,11 @@ function updateMarioMode() {
         return;
     }
 
+    if (isMarioAirborne()) {
+        marioMode = 'super';
+        return;
+    }
+
     marioMode = 'normal';
 }
 
@@ -120,8 +277,8 @@ function updateGhostAttack(delta) {
 
     if (marioMode === 'normal') {
         currentGhostPlaybackRate += (runSettings.idle.ghostPlaybackRate - currentGhostPlaybackRate) * Math.min(1, delta * 4);
-        ghostCurrentX += (ghostBaseX - ghostCurrentX) * Math.min(1, delta * 3.5);
-        ghostCurrentY += (ghostBaseY - ghostCurrentY) * Math.min(1, delta * 3.5);
+        ghostCurrentX += (ghostBaseX - ghostCurrentX) * Math.min(1, delta * ghostReturnEasing);
+        ghostCurrentY += (ghostBaseY - ghostCurrentY) * Math.min(1, delta * ghostReturnEasing);
         return;
     }
 
@@ -170,11 +327,6 @@ function applyGhostCollisionRules() {
 function updateRunMode() {
     updateMarioMode();
 
-    if (marioMode === 'super') {
-        runMode = 'fast';
-        return;
-    }
-
     if (marioMode === 'superfly') {
         runMode = 'superflyRun';
         return;
@@ -214,28 +366,92 @@ function handleRunKeyChange(event, isPressed) {
 }
 
 window.addEventListener('keydown', function(event) {
+    if ((event.code === 'Space' || event.key === ' ') && !event.repeat) {
+        event.preventDefault();
+        if (gameState === 'ready' || gameState === 'paused') {
+            startOrResumeGame();
+            return;
+        }
+
+        if (gameState === 'running') {
+            pauseGame();
+        }
+        return;
+    }
+
+    if (event.key === 'Tab') {
+        event.preventDefault();
+        if (gameState === 'gameover') {
+            restartGame();
+        }
+        return;
+    }
+
+    if (gameState !== 'running') {
+        return;
+    }
+
     handleRunKeyChange(event, true);
 });
 
 window.addEventListener('keyup', function(event) {
+    if (gameState !== 'running') {
+        return;
+    }
+
     handleRunKeyChange(event, false);
 });
 
+setStatusMessage('Press Space To Start', '', true);
+
 function animateScene() {
     var delta = clock.getDelta();
+    var targetMarioY;
+    var verticalTargetEasing;
+    var descentStep;
+    var isUpHeld = runKeyState.ArrowUp;
+    var isSuperflyHeld = runKeyState.ArrowUp && runKeyState.ArrowRight;
     var currentRunSettings = runSettings[runMode];
+    var airborneWithoutUp = isMarioAirborne() && !runKeyState.ArrowUp;
     var easing = Math.min(1, delta * (runMode === 'idle' ? 2.5 : 10));
-    var verticalEasing = Math.min(1, delta * (marioMode === 'superfly' ? 1.0 : 1.5));
+
+    if (isSuperflyHeld) {
+        verticalTargetEasing = superflyLiftEasing;
+    } else if (isUpHeld) {
+        verticalTargetEasing = upOnlyLiftEasing;
+    } else if (airborneWithoutUp) {
+        verticalTargetEasing = airborneDropEasing;
+    } else {
+        verticalTargetEasing = groundReturnEasing;
+    }
+
+    var verticalEasing = Math.min(1, delta * verticalTargetEasing);
+
+    if (gameState !== 'running') {
+        if (gameState === 'gameover') {
+            positionGameOverMessage();
+        }
+        renderer.render(scene, camera);
+        requestAnimationFrame(animateScene);
+        return;
+    }
 
     currentBackgroundSpeed += (currentRunSettings.backgroundSpeed - currentBackgroundSpeed) * easing;
-    marioBaseY += ((marioMode === 'superfly' ? marioFlyY : marioGroundY) - marioBaseY) * verticalEasing;
+    targetMarioY = isUpHeld ? marioFlyY : marioGroundY;
+    marioBaseY += (targetMarioY - marioBaseY) * verticalEasing;
 
-    for (var i = 0; i < animatedVideos.length; i += 1) {
-        var video = animatedVideos[i];
-        if (video.paused && video.readyState >= 2) {
-            video.play().catch(function() {});
-        }
+    if (airborneWithoutUp && marioBaseY > marioGroundY) {
+        descentStep = minAirborneDropSpeed * delta;
+        marioBaseY = Math.max(marioGroundY, marioBaseY - descentStep);
     }
+
+    if (!runKeyState.ArrowUp && marioBaseY <= marioGroundY + 0.01) {
+        marioBaseY = marioGroundY;
+    }
+
+    updateRunMode();
+
+    setAllVideoPlayback(true);
 
     updateMarioOverlayImage();
 
@@ -252,6 +468,18 @@ function animateScene() {
 
     syncMarioOverlay();
     updateGhostAttack(delta);
+
+    if (hasGhostMarioCollision()) {
+        triggerGameOver();
+        if (ghostSprite) {
+            ghostSprite.position.x = ghostCurrentX;
+            ghostSprite.position.y = ghostCurrentY;
+        }
+        renderer.render(scene, camera);
+        requestAnimationFrame(animateScene);
+        return;
+    }
+
     applyGhostCollisionRules();
 
     if (ghostSprite) {
