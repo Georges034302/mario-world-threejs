@@ -47,6 +47,38 @@ var ghostReturnEasing = 0.9;
 var gameState = 'ready';
 var gameOverDistance = 0.62;
 var gameStatusOverlay = document.getElementById('gameStatus');
+var marioFrozenFrameSrc = '';
+
+function freezeMarioOverlayAnimation() {
+    var frameCanvas;
+    var context;
+
+    if (!marioOverlay) {
+        return;
+    }
+
+    if (!marioOverlay.naturalWidth || !marioOverlay.naturalHeight) {
+        return;
+    }
+
+    frameCanvas = document.createElement('canvas');
+    frameCanvas.width = marioOverlay.naturalWidth;
+    frameCanvas.height = marioOverlay.naturalHeight;
+    context = frameCanvas.getContext('2d');
+
+    if (!context) {
+        return;
+    }
+
+    context.drawImage(marioOverlay, 0, 0, frameCanvas.width, frameCanvas.height);
+    marioFrozenFrameSrc = frameCanvas.toDataURL('image/png');
+    marioOverlay.setAttribute('src', marioFrozenFrameSrc);
+}
+
+function unfreezeMarioOverlayAnimation() {
+    marioFrozenFrameSrc = '';
+    updateMarioOverlayImage();
+}
 
 function setStatusMessage(text, cssClass, isVisible) {
     if (!gameStatusOverlay) {
@@ -115,6 +147,7 @@ function setAllVideoPlayback(shouldPlay) {
 function startOrResumeGame() {
     gameState = 'running';
     setStatusMessage('', '', false);
+    unfreezeMarioOverlayAnimation();
     clock.getDelta();
     setAllVideoPlayback(true);
 }
@@ -129,6 +162,7 @@ function pauseGame() {
         gameStatusOverlay.style.top = '50%';
         gameStatusOverlay.style.transform = 'translate(-50%, -50%)';
     }
+    freezeMarioOverlayAnimation();
     setAllVideoPlayback(false);
 }
 
@@ -156,6 +190,7 @@ function restartGame() {
     }
 
     updateRunMode();
+    unfreezeMarioOverlayAnimation();
     updateMarioOverlayImage();
     syncMarioOverlay();
     setStatusMessage('', '', false);
