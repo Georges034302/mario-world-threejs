@@ -3,6 +3,7 @@
 /* global textureLoader, backgroundMaterial, backgroundMesh, ghostSprite, animatedVideos, ghostVideo */
 /* global marioOverlay, marioBaseX, marioGroundY, ghostBaseX, ghostBaseY, ghostCurrentX, ghostCurrentY */
 
+// Returns background viewport size.
 function getBackgroundViewportSize() {
     var distance = camera.position.z + 10;
     var height = 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5)) * distance;
@@ -13,6 +14,7 @@ function getBackgroundViewportSize() {
     };
 }
 
+// Updates background size.
 function updateBackgroundSize() {
     var viewportSize = getBackgroundViewportSize();
 
@@ -23,6 +25,7 @@ function updateBackgroundSize() {
     backgroundMesh.scale.set(viewportSize.width, viewportSize.height, 1);
 }
 
+// Creates background.
 function createBackground() {
     var bgTexture = textureLoader.load('media/background.png');
     bgTexture.wrapS = THREE.RepeatWrapping;
@@ -40,6 +43,7 @@ function createBackground() {
     scene.add(backgroundMesh);
 }
 
+// Creates image sprite.
 function createImageSprite(path, scaleX, scaleY, x, y, z) {
     var texture = textureLoader.load(path);
     texture.magFilter = THREE.NearestFilter;
@@ -69,6 +73,7 @@ function createImageSprite(path, scaleX, scaleY, x, y, z) {
     return sprite;
 }
 
+// Creates video sprite.
 function createVideoSprite(path, fallbackPath, scaleX, scaleY, x, y, z) {
     var video = document.createElement('video');
     video.src = path;
@@ -139,6 +144,7 @@ function createVideoSprite(path, fallbackPath, scaleX, scaleY, x, y, z) {
     return sprite;
 }
 
+// Creates mario overlay.
 function createMarioOverlay() {
     if (!marioOverlay) {
         return;
@@ -160,8 +166,14 @@ function createMarioOverlay() {
     marioOverlay.style.opacity = '1';
 }
 
+// Handles add shapes.
 function addShapes() {
-    createBackground();
+    if (typeof createForestTheme === 'function') {
+        createForestTheme();
+    }
+    if (typeof createBats === 'function') {
+        createBats();
+    }
     createMarioOverlay();
 
     ghostCurrentX = ghostBaseX;

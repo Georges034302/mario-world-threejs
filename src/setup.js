@@ -22,6 +22,7 @@ var ghostCurrentY = 0;
 var animatedVideos = [];
 var ghostVideo = null;
 
+// Updates character base positions.
 function updateCharacterBasePositions() {
     var marioDepth = camera.position.z - 1;
     var viewportHeight = 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5)) * marioDepth;
@@ -46,6 +47,7 @@ function updateCharacterBasePositions() {
  * - create a WebGl renderer
  * - append the renderer to the HTML document body
  */
+// Sets scene.
 function setScene() {
     scene = new THREE.Scene();
     var ratio = window.innerWidth / window.innerHeight;
@@ -76,6 +78,7 @@ function setScene() {
  * - update the camera projection matrix
  * - render the view (scene, camera)
  */
+// Handles resize scene.
 var resizeScene = function() {
     var width = window.innerWidth;
     var height = window.innerHeight;
@@ -91,6 +94,14 @@ var resizeScene = function() {
 
     if (backgroundMesh) {
         updateBackgroundSize();
+    }
+
+    if (typeof updateForestThemeSize === 'function') {
+        updateForestThemeSize();
+    }
+
+    if (typeof updateBatsSize === 'function') {
+        updateBatsSize();
     }
 
     renderer.render(scene, camera);

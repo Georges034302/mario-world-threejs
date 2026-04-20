@@ -12,7 +12,7 @@
 
     <body>
         <div id="info">
-            <H1 id="pageTitle">Mario World</H1>
+            <p id="pageTitle">Mario World</p>
         </div>
         <div id="quickControls" aria-label="Quick controls">
             <strong>Quick Controls</strong>
@@ -24,9 +24,17 @@
             <span>Tab new game (after game over)</span>
         </div>
         <div id="gameStatus" aria-live="polite"></div>
+        <div id="hud" aria-label="Game stats">
+            <div class="hud-row"><span class="hud-label">Score</span><span id="hud-score">0</span></div>
+            <div class="hud-row"><span class="hud-label">Health</span><span id="hud-health">&#9829;&#9829;&#9829;</span></div>
+            <div class="hud-row"><span class="hud-label">Speed</span><span id="hud-speed">0.11</span></div>
+            <div class="hud-row"><span class="hud-label">Time</span><span id="hud-time">00:00.000</span></div>
+        </div>
         <img id="marioOverlay" src="media/mario.gif" alt="Mario">
         <script src="src/setup.js?v=2.0"></script>
+        <script src="src/forest_theme.js?v=2.0"></script>
         <script src="src/build.js?v=2.0"></script>
+        <script src="src/bats.js?v=2.0"></script>
         <script src="src/animate.js?v=2.0"></script>
         <script src="src/run.js?v=2.0"></script>
     </body>

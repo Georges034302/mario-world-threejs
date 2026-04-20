@@ -19,12 +19,16 @@ var runSettings = {
 
 
     },
+    super: {
+        backgroundSpeed: 1.11,
+        ghostPlaybackRate: 0.18
+    },
     fast: {
-        backgroundSpeed: 0.25,
+        backgroundSpeed: 1.25,
         ghostPlaybackRate: 0.18
     },
     superflyRun: {
-        backgroundSpeed: 0.45,
+        backgroundSpeed: 1.95,
         ghostPlaybackRate: 0.18
     },
     attack: {
@@ -38,17 +42,19 @@ var runSettings = {
 };
 var currentBackgroundSpeed = runSettings.idle.backgroundSpeed;
 var currentGhostPlaybackRate = runSettings.idle.ghostPlaybackRate;
-var upOnlyLiftEasing = 1.15;
-var superflyLiftEasing = 0.95;
+var upOnlyLiftEasing = 2.15;
+var superflyLiftEasing = 1.95;
 var groundReturnEasing = 1.4;
 var airborneDropEasing = 0.5;
 var minAirborneDropSpeed = 0.95;
 var ghostReturnEasing = 0.9;
 var gameState = 'ready';
 var gameOverDistance = 0.62;
+var gameDuration = 0;
 var gameStatusOverlay = document.getElementById('gameStatus');
 var marioFrozenFrameSrc = '';
 
+// Handles freeze mario overlay animation.
 function freezeMarioOverlayAnimation() {
     var frameCanvas;
     var context;
@@ -75,11 +81,48 @@ function freezeMarioOverlayAnimation() {
     marioOverlay.setAttribute('src', marioFrozenFrameSrc);
 }
 
+// Handles unfreeze mario overlay animation.
 function unfreezeMarioOverlayAnimation() {
     marioFrozenFrameSrc = '';
     updateMarioOverlayImage();
 }
 
+// Updates hud.
+function updateHUD() {
+    var hudEl = document.getElementById('hud');
+    var health;
+    var hearts;
+    var mins;
+    var secs;
+    var millis;
+    var score;
+    var speed;
+    var i;
+
+    if (!hudEl) {
+        return;
+    }
+
+    score = typeof batScore !== 'undefined' ? batScore : 0;
+    health = Math.max(0, 3 - (typeof batHitCount !== 'undefined' ? batHitCount : 0));
+    hearts = '';
+    for (i = 0; i < 3; i += 1) {
+        hearts += i < health ? '\u2665' : '\u2661';
+    }
+    speed = currentBackgroundSpeed.toFixed(2);
+    mins = Math.floor(gameDuration / 60);
+    secs = Math.floor(gameDuration % 60);
+    millis = Math.floor((gameDuration % 1) * 1000);
+
+    document.getElementById('hud-score').textContent = score;
+    document.getElementById('hud-health').textContent = hearts;
+    document.getElementById('hud-speed').textContent = speed;
+    document.getElementById('hud-time').textContent =
+        (mins < 10 ? '0' : '') + mins + ':' + (secs < 10 ? '0' : '') + secs + '.' +
+        (millis < 100 ? (millis < 10 ? '00' : '0') : '') + millis;
+}
+
+// Sets status message.
 function setStatusMessage(text, cssClass, isVisible) {
     if (!gameStatusOverlay) {
         return;
@@ -95,6 +138,7 @@ function setStatusMessage(text, cssClass, isVisible) {
     gameStatusOverlay.style.display = isVisible ? 'block' : 'none';
 }
 
+// Converts world coordinates into screen coordinates.
 function worldToScreen(worldX, worldY, worldZ) {
     var projected = new THREE.Vector3(worldX, worldY, worldZ);
     projected.project(camera);
@@ -105,6 +149,7 @@ function worldToScreen(worldX, worldY, worldZ) {
     };
 }
 
+// Handles position game over message.
 function positionGameOverMessage() {
     var collisionPoint;
     var offsetTop;
@@ -120,12 +165,14 @@ function positionGameOverMessage() {
     gameStatusOverlay.style.transform = 'translate(-50%, -100%)';
 }
 
+// Stops all input.
 function stopAllInput() {
     runKeyState.ArrowLeft = false;
     runKeyState.ArrowRight = false;
     runKeyState.ArrowUp = false;
 }
 
+// Sets all video playback.
 function setAllVideoPlayback(shouldPlay) {
     for (var i = 0; i < animatedVideos.length; i += 1) {
         var video = animatedVideos[i];
@@ -144,7 +191,11 @@ function setAllVideoPlayback(shouldPlay) {
     }
 }
 
+// Starts or resume game.
 function startOrResumeGame() {
+    if (gameState === 'ready') {
+        gameDuration = 0;
+    }
     gameState = 'running';
     setStatusMessage('', '', false);
     unfreezeMarioOverlayAnimation();
@@ -152,6 +203,7 @@ function startOrResumeGame() {
     setAllVideoPlayback(true);
 }
 
+// Pauses game.
 function pauseGame() {
     gameState = 'paused';
     stopAllInput();
@@ -166,6 +218,7 @@ function pauseGame() {
     setAllVideoPlayback(false);
 }
 
+// Restarts game.
 function restartGame() {
     gameState = 'running';
     stopAllInput();
@@ -196,8 +249,13 @@ function restartGame() {
     setStatusMessage('', '', false);
     clock.getDelta();
     setAllVideoPlayback(true);
+    gameDuration = 0;
+    if (typeof resetBats === 'function') {
+        resetBats();
+    }
 }
 
+// Triggers game over.
 function triggerGameOver() {
     gameState = 'gameover';
     stopAllInput();
@@ -208,6 +266,7 @@ function triggerGameOver() {
     setAllVideoPlayback(false);
 }
 
+// Checks whether has ghost mario collision.
 function hasGhostMarioCollision() {
     var deltaX;
     var deltaY;
@@ -222,10 +281,12 @@ function hasGhostMarioCollision() {
     return Math.sqrt((deltaX * deltaX) + (deltaY * deltaY)) < gameOverDistance;
 }
 
+// Checks whether is mario airborne.
 function isMarioAirborne() {
     return marioBaseY > (marioGroundY + 0.03);
 }
 
+// Syncs mario overlay.
 function syncMarioOverlay() {
     var distance;
     var viewportHeight;
@@ -263,6 +324,7 @@ function syncMarioOverlay() {
     marioOverlay.style.visibility = 'visible';
 }
 
+// Updates mario mode.
 function updateMarioMode() {
     if (runKeyState.ArrowUp && runKeyState.ArrowRight) {
         marioMode = 'superfly';
@@ -282,6 +344,7 @@ function updateMarioMode() {
     marioMode = 'normal';
 }
 
+// Updates mario overlay image.
 function updateMarioOverlayImage() {
     var nextSource;
 
@@ -297,6 +360,7 @@ function updateMarioOverlayImage() {
     marioOverlay.dataset.mode = marioMode;
 }
 
+// Updates ghost attack.
 function updateGhostAttack(delta) {
     var attackSettings;
     var targetX;
@@ -340,6 +404,7 @@ function updateGhostAttack(delta) {
     ghostCurrentY += (deltaY / distance) * maxStep;
 }
 
+// Applies ghost collision rules.
 function applyGhostCollisionRules() {
     var deltaX;
     var deltaY;
@@ -359,11 +424,17 @@ function applyGhostCollisionRules() {
     }
 }
 
+// Updates run mode.
 function updateRunMode() {
     updateMarioMode();
 
     if (marioMode === 'superfly') {
         runMode = 'superflyRun';
+        return;
+    }
+
+    if (marioMode === 'super') {
+        runMode = 'super';
         return;
     }
 
@@ -380,22 +451,26 @@ function updateRunMode() {
     runMode = 'idle';
 }
 
+// Handles run key change.
 function handleRunKeyChange(event, isPressed) {
     if (event.key === 'ArrowLeft') {
         runKeyState.ArrowLeft = isPressed;
         updateRunMode();
+        updateMarioOverlayImage();
         event.preventDefault();
     }
 
     if (event.key === 'ArrowRight') {
         runKeyState.ArrowRight = isPressed;
         updateRunMode();
+        updateMarioOverlayImage();
         event.preventDefault();
     }
 
     if (event.key === 'ArrowUp') {
         runKeyState.ArrowUp = isPressed;
         updateRunMode();
+        updateMarioOverlayImage();
         event.preventDefault();
     }
 }
@@ -439,16 +514,21 @@ window.addEventListener('keyup', function(event) {
 
 setStatusMessage('Press Space To Start', '', true);
 
+// Handles animate scene.
 function animateScene() {
     var delta = clock.getDelta();
     var targetMarioY;
+    var currentRunSettings;
     var verticalTargetEasing;
     var descentStep;
     var isUpHeld = runKeyState.ArrowUp;
     var isSuperflyHeld = runKeyState.ArrowUp && runKeyState.ArrowRight;
-    var currentRunSettings = runSettings[runMode];
     var airborneWithoutUp = isMarioAirborne() && !runKeyState.ArrowUp;
-    var easing = Math.min(1, delta * (runMode === 'idle' ? 2.5 : 10));
+    var easing;
+
+    updateRunMode();
+    currentRunSettings = runSettings[runMode];
+    easing = Math.min(1, delta * (runMode === 'idle' ? 2.5 : 10));
 
     if (isSuperflyHeld) {
         verticalTargetEasing = superflyLiftEasing;
@@ -485,10 +565,9 @@ function animateScene() {
     }
 
     updateRunMode();
+    updateMarioOverlayImage();
 
     setAllVideoPlayback(true);
-
-    updateMarioOverlayImage();
 
     if (ghostVideo && ghostVideo.readyState >= 2) {
         ghostVideo.playbackRate = currentGhostPlaybackRate;
@@ -500,6 +579,17 @@ function animateScene() {
         backgroundMaterial.map.offset.x = scrollOffset;
         backgroundMaterial.map.rotation = backgroundRotation;
     }
+
+    if (typeof updateForestTheme === 'function') {
+        updateForestTheme(delta, currentBackgroundSpeed);
+    }
+
+    if (typeof updateBats === 'function') {
+        updateBats(delta);
+    }
+
+    gameDuration += delta;
+    updateHUD();
 
     syncMarioOverlay();
     updateGhostAttack(delta);

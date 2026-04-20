@@ -17,21 +17,20 @@ body {
 }
 
 #info {
-    position: absolute;
-    top: 10px;
-    width: 100%;
-    text-align: center;
+    position: fixed;
+    top: 14px;
+    left: 16px;
     z-index: 2;
 }
 
-h1 {
-    text-align: center;
-    color: cornsilk;
-    font-size: 300%;
-    background-color: #23445D;
-    width: 100%;
-    padding: 10px 5px;
-    margin-top: auto;
+#pageTitle {
+    margin: 0;
+    color: #eef3ff;
+    font-size: 34px;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
 }
 
 #marioOverlay {
@@ -99,7 +98,63 @@ h1 {
     box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
 }
 
+#hud {
+    position: fixed;
+    left: 16px;
+    bottom: 16px;
+    z-index: 4;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(200, 170, 255, 0.25);
+    background: rgba(8, 4, 20, 0.78);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    pointer-events: none;
+}
+
+.hud-row {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-family: Monospace;
+    font-size: 13px;
+    line-height: 1;
+}
+
+.hud-label {
+    color: rgba(200, 170, 255, 0.7);
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    align-self: center;
+}
+
+#hud-score, #hud-health, #hud-speed, #hud-time {
+    color: #eeddff;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+}
+
+#hud-health {
+    color: #ff7eb6;
+    letter-spacing: 3px;
+}
+
 @media (max-width: 760px) {
+    #info {
+        top: 10px;
+        left: 10px;
+    }
+
+    #pageTitle {
+        font-size: 24px;
+        letter-spacing: 0.06em;
+    }
+
     #quickControls {
         right: 8px;
         left: 8px;
@@ -121,5 +176,14 @@ h1 {
         font-size: 17px;
         max-width: calc(100vw - 32px);
         text-align: center;
+    }
+
+    #hud {
+        left: 8px;
+        right: 8px;
+        bottom: 52px;
+        flex-wrap: wrap;
+        justify-content: flex-start;
+        gap: 8px 10px;
     }
 }
