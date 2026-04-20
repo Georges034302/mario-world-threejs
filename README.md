@@ -2,6 +2,8 @@
 
 Mario World Three.js is a browser-based 2.5D demo/game scene built with Three.js. It renders a scrolling Mario-style background, overlays animated Mario sprites, and drives a reactive ghost opponent with keyboard-controlled behavior modes.
 
+Current documented version: **v2.0**
+
 ## What Is The Project?
 
 This project is a lightweight interactive web experience that combines:
@@ -9,6 +11,7 @@ This project is a lightweight interactive web experience that combines:
 - A Three.js scene and camera setup
 - Sprite and video-texture based characters
 - Keyboard-driven mode switching (normal, super, superfly)
+- Game state controls (start, pause, resume, restart)
 - Continuous animation loop with motion smoothing and collision rules
 
 Live demo: [https://georges034302.github.io/mario-world-threejs/](https://georges034302.github.io/mario-world-threejs/)
@@ -48,19 +51,25 @@ mario-world-threejs/
 
 ## Controls And Behavior
 
-| Input | Mode | Mario Behavior | World/Ghost Behavior |
+| Input | State/Mode | Mario Behavior | World/Ghost Behavior |
 |---|---|---|---|
-| No key | `normal` | Mario uses `mario.gif` and stays on ground level. | Background scroll returns to idle speed, ghost returns to base position. |
+| Space | `ready` -> `running` | Starts the game from the ready screen. | World animation and AI become active. |
+| Space | `running` -> `paused` | Freezes Mario and input-driven movement. | Background/video motion pauses and status overlay shows "Paused". |
+| Space | `paused` -> `running` | Resumes gameplay. | World and AI continue from paused state. |
+| Tab (after Game Over) | `gameover` -> `running` | Resets Mario to baseline and starts a new run. | Ghost returns to base position and world scroll resets. |
+| No arrow key | `normal` | Mario uses `mario.gif` and stays on ground level. | Background scroll returns to idle speed, ghost smoothly returns to base. |
 | Arrow Left | `normal` + slow run | Mario remains normal mode. | Background scroll slows down. |
 | Arrow Right | `normal` + fast run | Mario remains normal mode. | Background scroll speeds up. |
-| Arrow Up | `super` | Mario switches to `super.gif` and remains near ground level. | Ghost enters attack behavior and moves toward Mario. |
-| Arrow Up + Arrow Right | `superfly` | Mario switches to `super.gif` and flies upward smoothly. | Background scroll is fastest; ghost switches to superfly pursuit behavior. |
+| Arrow Up | `super` (up-only flight) | Mario switches to `super.gif` and rises to mid-air fly height. | Ghost uses attack behavior and tracks Mario. |
+| Arrow Up released while airborne | `super` while descending | Mario stays in `super.gif` and descends smoothly to ground. | Ghost keeps attack behavior until Mario lands; then normal behavior resumes. |
+| Arrow Up + Arrow Right | `superfly` | Mario uses `super.gif` and flies with superfly handling. | Background scroll is fastest and ghost uses superfly pursuit behavior. |
 
 ### Notes
 
 - Mode transitions are smoothed each frame (no instant jumps in movement).
 - Ghost playback speed and movement intensity increase during attack/superfly states.
-- In `super` mode, collision rules prevent the ghost from overlapping Mario too closely.
+- Game over occurs when ghost and Mario collision distance falls below the configured threshold.
+- On game over, a red "Game Over" popup is positioned above Mario/ghost and gameplay is halted until restart.
 
 ---
 
