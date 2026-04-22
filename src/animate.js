@@ -491,12 +491,16 @@ function triggerWin() {
     stopAllInput();
     runMode = 'idle';
     currentBackgroundSpeed = runSettings.idle.backgroundSpeed;
+    if (typeof batScore !== 'undefined') {
+        batScore = 100;
+    }
     setStatusMessage('WIN', 'win', true);
     if (gameStatusOverlay) {
         gameStatusOverlay.style.left = '50%';
         gameStatusOverlay.style.top = '7%';
         gameStatusOverlay.style.transform = 'translate(-50%, 0)';
     }
+    updateHUD();
     startWinFireworks();
     setAllVideoPlayback(false);
 }

@@ -11,12 +11,14 @@ var batsViewportSize = null;
 var BAT_BASE_SPEED = 2.8;
 var batHitCount = 0;
 var batScore = 0;
-var BAT_BODY_RADIUS = 0.27;
+var BAT_BODY_RADIUS = 0.22;
 var BAT_MAX_HITS = 3;
 var BAT_SPAWN_BATCH_SIZE = 2;
 var BAT_HORIZONTAL_PATTERN_PROBABILITY = 0.5;
 var BAT_BOTTOM_RIGHT_PATTERN_PROBABILITY = 0.25;
 var BAT_TOP_RIGHT_PATTERN_PROBABILITY = 0.02;
+var BAT_DIAGONAL_EDGE_BAND_RATIO = 0.08;
+var BAT_DIAGONAL_VERTICAL_MAX_RATIO = 0.9;
 
 // Returns current bat difficulty level.
 function getBatLevel() {
@@ -54,15 +56,32 @@ function getBatSpawnPattern(level) {
     }
 
     if (spawnRoll < BAT_HORIZONTAL_PATTERN_PROBABILITY + BAT_BOTTOM_RIGHT_PATTERN_PROBABILITY) {
-        return 'bottom-right-center';
+        return 'bottom-right-top-left';
     }
 
     if (spawnRoll < BAT_HORIZONTAL_PATTERN_PROBABILITY + BAT_BOTTOM_RIGHT_PATTERN_PROBABILITY + BAT_TOP_RIGHT_PATTERN_PROBABILITY) {
-        return 'top-right-center';
+        return 'top-right-bottom-left';
     }
 
     // Keep any unassigned probability right-to-left horizontal.
     return 'horizontal';
+}
+
+// Returns the bat patterns that should spawn in the current batch.
+function getBatSpawnPatternsForBatch(level) {
+    var patterns = [];
+    var i;
+
+    if (level >= 4) {
+        // Level 4 always spawns one of each direction.
+        return ['top-right-bottom-left', 'horizontal', 'bottom-right-top-left'];
+    }
+
+    for (i = 0; i < BAT_SPAWN_BATCH_SIZE; i += 1) {
+        patterns.push(getBatSpawnPattern(level));
+    }
+
+    return patterns;
 }
 
 // Constrains a value to stay within a minimum and maximum range.
@@ -151,24 +170,46 @@ function createBatMesh() {
 }
 
 // Handles spawn bat.
-function spawnBat() {
+function spawnBat(forcedPattern, forcedLevel) {
     var vp = batsViewportSize || getBatsViewportSize();
     var ground = marioGroundY;
     var sky = ground + vp.height * 0.85;
-    var level = getBatLevel();
-    var spawnPattern = getBatSpawnPattern(level);
-    var startBandHeight = vp.height * 0.16;
-    var centerTargetX = (Math.random() - 0.5) * vp.width * 0.18;
-    var centerTargetY = ground + (vp.height * 0.45);
+    var level = typeof forcedLevel === 'number' ? forcedLevel : getBatLevel();
+    var spawnPattern = forcedPattern || getBatSpawnPattern(level);
+    var startBandHeight = vp.height * BAT_DIAGONAL_EDGE_BAND_RATIO;
     var startY = ground + vp.height * 0.2 + (Math.random() * (sky - ground - vp.height * 0.2));
     var startX = vp.width * 0.5 + 0.6;
+    var targetX = -(vp.width * 0.5 + 0.8);
+    var targetY = startY;
+    var diagVelocityX = 0;
+    var diagVelocityY = 0;
+    var travelSpeed = getBatSpeedForLevel(level);
 
     var bat = createBatMesh();
 
-    if (spawnPattern === 'top-right-center') {
+    if (spawnPattern === 'top-right-bottom-left') {
         startY = sky - (Math.random() * startBandHeight);
-    } else if (spawnPattern === 'bottom-right-center') {
+        targetY = ground + (Math.random() * startBandHeight);
+    } else if (spawnPattern === 'bottom-right-top-left') {
         startY = ground + (Math.random() * startBandHeight);
+        targetY = sky - (Math.random() * startBandHeight);
+    }
+
+    if (spawnPattern !== 'horizontal') {
+        var pathDeltaX = targetX - startX;
+        var pathDeltaY = targetY - startY;
+        var diagonalSlope;
+
+        if (Math.abs(pathDeltaX) > 0.001) {
+            // Keep diagonal bats pressing left at the same pace as horizontal bats.
+            diagVelocityX = -travelSpeed;
+            diagonalSlope = pathDeltaY / Math.abs(pathDeltaX);
+            diagVelocityY = clamp(
+                diagonalSlope * travelSpeed,
+                -(travelSpeed * BAT_DIAGONAL_VERTICAL_MAX_RATIO),
+                travelSpeed * BAT_DIAGONAL_VERTICAL_MAX_RATIO
+            );
+        }
     }
 
     bat.position.set(startX, startY, -0.5);
@@ -178,9 +219,8 @@ function spawnBat() {
         alive: true,
         baseY: startY,
         spawnPattern: spawnPattern,
-        movePhase: 'toward-center',
-        centerTargetX: centerTargetX,
-        centerTargetY: centerTargetY,
+        diagVelocityX: diagVelocityX,
+        diagVelocityY: diagVelocityY,
         ampY: 0.35 + Math.random() * 0.65,       // vertical oscillation amplitude (0.35–1.0)
         freqY: 1.2 + Math.random() * 1.8,          // oscillation frequency (1.2–3.0 Hz)
         phaseY: Math.random() * Math.PI * 2,        // random phase offset
@@ -215,19 +255,23 @@ function updateBats(delta) {
     var ud;
     var vp;
     var currentBatSpeed;
+    var currentLevel;
+    var spawnPatterns;
 
     if (!batsGroup) {
         return;
     }
 
     vp = batsViewportSize || getBatsViewportSize();
-    currentBatSpeed = getBatSpeedForLevel(getBatLevel());
+    currentLevel = getBatLevel();
+    currentBatSpeed = getBatSpeedForLevel(currentLevel);
     // Spawn timer
     batsTimer += delta;
     if (batsTimer >= batsSpawnInterval) {
         batsTimer -= batsSpawnInterval;
-        for (var spawnIndex = 0; spawnIndex < BAT_SPAWN_BATCH_SIZE; spawnIndex += 1) {
-            spawnBat();
+        spawnPatterns = getBatSpawnPatternsForBatch(currentLevel);
+        for (var spawnIndex = 0; spawnIndex < spawnPatterns.length; spawnIndex += 1) {
+            spawnBat(spawnPatterns[spawnIndex], currentLevel);
         }
     }
 
@@ -248,27 +292,9 @@ function updateBats(delta) {
             // Oscillating vertical trajectory (sine wave around baseY).
             bat.position.y = ud.baseY + Math.sin(ud.time * ud.freqY + ud.phaseY) * ud.ampY;
         } else {
-            if (ud.movePhase === 'toward-center') {
-                var targetDeltaX = ud.centerTargetX - bat.position.x;
-                var targetDeltaY = ud.centerTargetY - bat.position.y;
-                var targetDistance = Math.sqrt((targetDeltaX * targetDeltaX) + (targetDeltaY * targetDeltaY));
-                var centerStep = currentBatSpeed * delta;
-
-                if (targetDistance <= centerStep || targetDistance < 0.08) {
-                    bat.position.x = ud.centerTargetX;
-                    bat.position.y = ud.centerTargetY;
-                    ud.baseY = bat.position.y;
-                    ud.movePhase = 'left-sweep';
-                } else {
-                    bat.position.x += (targetDeltaX / targetDistance) * centerStep;
-                    bat.position.y += (targetDeltaY / targetDistance) * centerStep;
-                }
-            }
-
-            if (ud.movePhase === 'left-sweep') {
-                bat.position.x -= currentBatSpeed * delta;
-                bat.position.y = ud.baseY + Math.sin(ud.time * ud.freqY + ud.phaseY) * (ud.ampY * 0.75);
-            }
+            // Diagonal patterns move corner-to-corner from right to opposite left side.
+            bat.position.x += ud.diagVelocityX * delta;
+            bat.position.y += ud.diagVelocityY * delta;
         }
 
         // Wing flap: scale the wing children on Y axis

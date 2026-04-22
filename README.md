@@ -12,7 +12,8 @@ Live demo: [https://georges034302.github.io/mario-world-threejs/](https://george
 - **Ready/Pause freeze** behavior for Mario and ghost media playback.
 - Random **bat hazard system**:
 	- Spawns every 3.5 seconds
-	- Spawns **2 bats per cycle**
+	- Spawns **2 bats per cycle** (Levels 1-3)
+	- Spawns **3 bats per cycle** in Level 4
 	- Always spawns from the right side and moves right-to-left
 	- 3 bat hits = game over
 - HUD metrics at bottom-left:
@@ -32,9 +33,13 @@ Live demo: [https://georges034302.github.io/mario-world-threejs/](https://george
 	- Bat speed increases at Levels 2 and 3 (`+0.25`) and again at Level 4 (`+0.50` vs base)
 - Level 3 and 4 bat trajectories:
 	- `50%` horizontal right-to-left
-	- `25%` bottom-right to center, then continue left
-	- `2%` top-right to center, then continue left
+	- `25%` bottom-right to top-left diagonal
+	- `2%` top-right to bottom-left diagonal
 	- Remaining probability currently falls back to horizontal right-to-left
+	- In **Level 4**, each spawn wave always includes exactly 3 bats:
+		- 1 top-right to bottom-left diagonal
+		- 1 horizontal right-to-left
+		- 1 bottom-right to top-left diagonal
 - WIN presentation and effects:
 	- WIN badge appears top-center with larger text and trophy on the right
 	- Procedural, multi-color Three.js fireworks play around WIN for 5 seconds
