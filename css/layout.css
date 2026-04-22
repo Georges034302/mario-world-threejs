@@ -33,6 +33,12 @@ body {
     text-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
 }
 
+#pageLevel {
+    display: inline-block;
+    margin-left: 0.4em;
+    color: #ffd84d;
+}
+
 #marioOverlay {
     position: fixed;
     left: 50%;
@@ -98,6 +104,41 @@ body {
     box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
 }
 
+#gameStatus.win {
+    border-color: rgba(120, 255, 146, 0.98);
+    background: rgba(10, 66, 20, 0.92);
+    color: #7dff87;
+    font-size: 46px;
+    letter-spacing: 2.4px;
+    line-height: 1;
+    padding: 16px 76px 14px 24px;
+    box-shadow: 0 0 18px rgba(80, 255, 120, 0.5), 0 0 36px rgba(42, 255, 104, 0.3);
+    text-shadow: 0 0 8px rgba(140, 255, 164, 0.9);
+    animation: winPulse 1.1s ease-in-out infinite alternate;
+}
+
+#gameStatus.win::after {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 42px;
+}
+
+#gameStatus.win::after {
+    content: '🏆';
+    right: 18px;
+}
+
+@keyframes winPulse {
+    from {
+        transform: translate(-50%, 0) scale(1);
+    }
+
+    to {
+        transform: translate(-50%, 0) scale(1.06);
+    }
+}
+
 #hud {
     position: fixed;
     left: 16px;
@@ -153,6 +194,12 @@ body {
     #pageTitle {
         font-size: 24px;
         letter-spacing: 0.06em;
+    }
+
+    #pageLevel {
+        display: block;
+        margin-left: 0;
+        margin-top: 4px;
     }
 
     #quickControls {

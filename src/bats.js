@@ -1,4 +1,4 @@
-/* global THREE, scene, camera, marioGroundY, marioBaseX, marioBaseY, marioMode, triggerGameOver */
+/* global THREE, scene, camera, marioGroundY, marioBaseX, marioBaseY, marioMode, triggerGameOver, triggerWin, getCurrentLevel */
 
 var batsGroup = null;
 var batsPool = [];
@@ -8,12 +8,62 @@ var batsViewportSize = null;
 
 // Fixed bat travel speed — half of Mario idle backgroundSpeed (0.11 * 0.5 = 0.055 world units/s)
 // Scaled to feel right at a fixed 2.8 world units per second of lateral travel
-var BAT_SPEED = 2.8;
+var BAT_BASE_SPEED = 2.8;
 var batHitCount = 0;
 var batScore = 0;
 var BAT_BODY_RADIUS = 0.27;
 var BAT_MAX_HITS = 3;
 var BAT_SPAWN_BATCH_SIZE = 2;
+var BAT_HORIZONTAL_PATTERN_PROBABILITY = 0.5;
+var BAT_BOTTOM_RIGHT_PATTERN_PROBABILITY = 0.25;
+var BAT_TOP_RIGHT_PATTERN_PROBABILITY = 0.02;
+
+// Returns current bat difficulty level.
+function getBatLevel() {
+    if (typeof getCurrentLevel === 'function') {
+        return getCurrentLevel();
+    }
+
+    return 1;
+}
+
+// Returns bat speed for a level.
+function getBatSpeedForLevel(level) {
+    if (level >= 4) {
+        return BAT_BASE_SPEED + 0.5;
+    }
+
+    if (level >= 2) {
+        return BAT_BASE_SPEED + 0.25;
+    }
+
+    return BAT_BASE_SPEED;
+}
+
+// Returns bat spawn pattern for the current level.
+function getBatSpawnPattern(level) {
+    var spawnRoll;
+
+    if (level < 3) {
+        return 'horizontal';
+    }
+
+    spawnRoll = Math.random();
+    if (spawnRoll < BAT_HORIZONTAL_PATTERN_PROBABILITY) {
+        return 'horizontal';
+    }
+
+    if (spawnRoll < BAT_HORIZONTAL_PATTERN_PROBABILITY + BAT_BOTTOM_RIGHT_PATTERN_PROBABILITY) {
+        return 'bottom-right-center';
+    }
+
+    if (spawnRoll < BAT_HORIZONTAL_PATTERN_PROBABILITY + BAT_BOTTOM_RIGHT_PATTERN_PROBABILITY + BAT_TOP_RIGHT_PATTERN_PROBABILITY) {
+        return 'top-right-center';
+    }
+
+    // Keep any unassigned probability right-to-left horizontal.
+    return 'horizontal';
+}
 
 // Constrains a value to stay within a minimum and maximum range.
 function clamp(value, minValue, maxValue) {
@@ -105,18 +155,32 @@ function spawnBat() {
     var vp = batsViewportSize || getBatsViewportSize();
     var ground = marioGroundY;
     var sky = ground + vp.height * 0.85;
-
-    // Random starting Y in the upper 2/3 of the screen (avoid ground level)
+    var level = getBatLevel();
+    var spawnPattern = getBatSpawnPattern(level);
+    var startBandHeight = vp.height * 0.16;
+    var centerTargetX = (Math.random() - 0.5) * vp.width * 0.18;
+    var centerTargetY = ground + (vp.height * 0.45);
     var startY = ground + vp.height * 0.2 + (Math.random() * (sky - ground - vp.height * 0.2));
-    var startX = vp.width * 0.5 + 0.6; // just off right edge
+    var startX = vp.width * 0.5 + 0.6;
 
     var bat = createBatMesh();
+
+    if (spawnPattern === 'top-right-center') {
+        startY = sky - (Math.random() * startBandHeight);
+    } else if (spawnPattern === 'bottom-right-center') {
+        startY = ground + (Math.random() * startBandHeight);
+    }
+
     bat.position.set(startX, startY, -0.5);
 
     // Oscillation parameters — each bat gets unique wave
     bat.userData = {
         alive: true,
         baseY: startY,
+        spawnPattern: spawnPattern,
+        movePhase: 'toward-center',
+        centerTargetX: centerTargetX,
+        centerTargetY: centerTargetY,
         ampY: 0.35 + Math.random() * 0.65,       // vertical oscillation amplitude (0.35–1.0)
         freqY: 1.2 + Math.random() * 1.8,          // oscillation frequency (1.2–3.0 Hz)
         phaseY: Math.random() * Math.PI * 2,        // random phase offset
@@ -150,12 +214,14 @@ function updateBats(delta) {
     var bat;
     var ud;
     var vp;
+    var currentBatSpeed;
 
     if (!batsGroup) {
         return;
     }
 
     vp = batsViewportSize || getBatsViewportSize();
+    currentBatSpeed = getBatSpeedForLevel(getBatLevel());
     // Spawn timer
     batsTimer += delta;
     if (batsTimer >= batsSpawnInterval) {
@@ -176,11 +242,34 @@ function updateBats(delta) {
 
         ud.time += delta;
 
-        // Move left at fixed speed
-        bat.position.x -= BAT_SPEED * delta;
+        if (ud.spawnPattern === 'horizontal') {
+            // Move left at fixed speed.
+            bat.position.x -= currentBatSpeed * delta;
+            // Oscillating vertical trajectory (sine wave around baseY).
+            bat.position.y = ud.baseY + Math.sin(ud.time * ud.freqY + ud.phaseY) * ud.ampY;
+        } else {
+            if (ud.movePhase === 'toward-center') {
+                var targetDeltaX = ud.centerTargetX - bat.position.x;
+                var targetDeltaY = ud.centerTargetY - bat.position.y;
+                var targetDistance = Math.sqrt((targetDeltaX * targetDeltaX) + (targetDeltaY * targetDeltaY));
+                var centerStep = currentBatSpeed * delta;
 
-        // Oscillating vertical trajectory (sine wave around baseY)
-        bat.position.y = ud.baseY + Math.sin(ud.time * ud.freqY + ud.phaseY) * ud.ampY;
+                if (targetDistance <= centerStep || targetDistance < 0.08) {
+                    bat.position.x = ud.centerTargetX;
+                    bat.position.y = ud.centerTargetY;
+                    ud.baseY = bat.position.y;
+                    ud.movePhase = 'left-sweep';
+                } else {
+                    bat.position.x += (targetDeltaX / targetDistance) * centerStep;
+                    bat.position.y += (targetDeltaY / targetDistance) * centerStep;
+                }
+            }
+
+            if (ud.movePhase === 'left-sweep') {
+                bat.position.x -= currentBatSpeed * delta;
+                bat.position.y = ud.baseY + Math.sin(ud.time * ud.freqY + ud.phaseY) * (ud.ampY * 0.75);
+            }
+        }
 
         // Wing flap: scale the wing children on Y axis
         var flapScale = 0.55 + 0.45 * Math.abs(Math.sin(ud.time * ud.wingSpeed + ud.wingPhase));
@@ -212,6 +301,13 @@ function updateBats(delta) {
             batsPool.splice(i, 1);
             if (isScoreEligibleMode()) {
                 batScore += 1;
+                if (batScore >= 100) {
+                    batScore = 100;
+                    if (typeof triggerWin === 'function') {
+                        triggerWin();
+                    }
+                    return;
+                }
             }
         }
     }

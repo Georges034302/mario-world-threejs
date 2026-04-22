@@ -53,6 +53,41 @@ var gameOverDistance = 0.62;
 var gameDuration = 0;
 var gameStatusOverlay = document.getElementById('gameStatus');
 var marioFrozenFrameSrc = '';
+var winFireworksGroup = null;
+var winFireworksBursts = [];
+var winFireworksElapsed = 0;
+var winFireworksSpawnTimer = 0;
+var winFireworksActive = false;
+var WIN_FIREWORKS_DURATION = 5;
+var WIN_FIREWORKS_Z = -1.2;
+var WIN_FIREWORKS_BURST_INTERVAL = 0.22;
+var WIN_FIREWORKS_INITIAL_BURSTS = 3;
+var WIN_FIREWORKS_MIN_POINTS = 72;
+var WIN_FIREWORKS_POINT_VARIANCE = 40;
+
+// Returns the current level for a given score.
+function getLevelForScore(score) {
+    if (score >= 75) {
+        return 4;
+    }
+
+    if (score >= 50) {
+        return 3;
+    }
+
+    if (score >= 25) {
+        return 2;
+    }
+
+    return 1;
+}
+
+// Returns the current game level.
+function getCurrentLevel() {
+    var score = typeof batScore !== 'undefined' ? batScore : 0;
+
+    return getLevelForScore(score);
+}
 
 // Handles freeze mario overlay animation.
 function freezeMarioOverlayAnimation() {
@@ -90,6 +125,7 @@ function unfreezeMarioOverlayAnimation() {
 // Updates hud.
 function updateHUD() {
     var hudEl = document.getElementById('hud');
+    var pageLevelEl = document.getElementById('pageLevel');
     var health;
     var hearts;
     var mins;
@@ -97,6 +133,7 @@ function updateHUD() {
     var millis;
     var score;
     var speed;
+    var level;
     var i;
 
     if (!hudEl) {
@@ -104,6 +141,7 @@ function updateHUD() {
     }
 
     score = typeof batScore !== 'undefined' ? batScore : 0;
+    level = getLevelForScore(score);
     health = Math.max(0, 3 - (typeof batHitCount !== 'undefined' ? batHitCount : 0));
     hearts = '';
     for (i = 0; i < 3; i += 1) {
@@ -120,6 +158,10 @@ function updateHUD() {
     document.getElementById('hud-time').textContent =
         (mins < 10 ? '0' : '') + mins + ':' + (secs < 10 ? '0' : '') + secs + '.' +
         (millis < 100 ? (millis < 10 ? '00' : '0') : '') + millis;
+
+    if (pageLevelEl) {
+        pageLevelEl.textContent = 'Level ' + level;
+    }
 }
 
 // Sets status message.
@@ -130,12 +172,185 @@ function setStatusMessage(text, cssClass, isVisible) {
 
     gameStatusOverlay.textContent = text;
     gameStatusOverlay.classList.remove('game-over');
+    gameStatusOverlay.classList.remove('win');
 
     if (cssClass) {
         gameStatusOverlay.classList.add(cssClass);
     }
 
     gameStatusOverlay.style.display = isVisible ? 'block' : 'none';
+}
+
+// Converts normalized device coordinates to a world point at the target Z plane.
+function ndcToWorldAtZ(ndcX, ndcY, targetZ) {
+    var projected = new THREE.Vector3(ndcX, ndcY, 0.5).unproject(camera);
+    var direction = projected.sub(camera.position).normalize();
+    var distance = (targetZ - camera.position.z) / direction.z;
+
+    return camera.position.clone().add(direction.multiplyScalar(distance));
+}
+
+// Creates win fireworks group lazily.
+function ensureWinFireworksGroup() {
+    if (winFireworksGroup) {
+        return;
+    }
+
+    winFireworksGroup = new THREE.Group();
+    scene.add(winFireworksGroup);
+}
+
+// Clears all active fireworks bursts.
+function clearWinFireworksBursts() {
+    for (var i = winFireworksBursts.length - 1; i >= 0; i -= 1) {
+        var burst = winFireworksBursts[i];
+        if (winFireworksGroup) {
+            winFireworksGroup.remove(burst.points);
+        }
+        burst.points.geometry.dispose();
+        burst.points.material.dispose();
+    }
+
+    winFireworksBursts = [];
+}
+
+// Stops and clears win fireworks.
+function stopWinFireworks() {
+    winFireworksActive = false;
+    winFireworksElapsed = 0;
+    winFireworksSpawnTimer = 0;
+    clearWinFireworksBursts();
+}
+
+// Creates one procedural fireworks burst near the win label.
+function spawnWinFireworkBurst() {
+    var pointCount;
+    var positions;
+    var colors;
+    var velocities;
+    var geometry;
+    var material;
+    var points;
+    var origin;
+    var i;
+
+    ensureWinFireworksGroup();
+    origin = ndcToWorldAtZ((Math.random() - 0.5) * 0.22, 0.7 + (Math.random() * 0.16), WIN_FIREWORKS_Z);
+    pointCount = WIN_FIREWORKS_MIN_POINTS + Math.floor(Math.random() * WIN_FIREWORKS_POINT_VARIANCE);
+    positions = new Float32Array(pointCount * 3);
+    colors = new Float32Array(pointCount * 3);
+    velocities = new Float32Array(pointCount * 3);
+
+    for (i = 0; i < pointCount; i += 1) {
+        var index = i * 3;
+        var angle = Math.random() * Math.PI * 2;
+        var radiusSpeed = 1.1 + Math.random() * 2.2;
+        var verticalBoost = (Math.random() - 0.35) * 2.1;
+        var color = new THREE.Color().setHSL(Math.random(), 0.95, 0.58);
+
+        positions[index] = origin.x;
+        positions[index + 1] = origin.y;
+        positions[index + 2] = origin.z + ((Math.random() - 0.5) * 0.25);
+
+        velocities[index] = Math.cos(angle) * radiusSpeed;
+        velocities[index + 1] = Math.sin(angle) * radiusSpeed + verticalBoost;
+        velocities[index + 2] = (Math.random() - 0.5) * 0.3;
+
+        colors[index] = color.r;
+        colors[index + 1] = color.g;
+        colors[index + 2] = color.b;
+    }
+
+    geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+    material = new THREE.PointsMaterial({
+        size: 0.12,
+        transparent: true,
+        opacity: 1,
+        vertexColors: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending
+    });
+
+    points = new THREE.Points(geometry, material);
+    points.frustumCulled = false;
+    winFireworksGroup.add(points);
+
+    winFireworksBursts.push({
+        points: points,
+        velocities: velocities,
+        age: 0,
+        life: 1.1 + Math.random() * 0.9,
+        gravity: 1.6 + Math.random() * 0.7
+    });
+}
+
+// Starts win fireworks sequence.
+function startWinFireworks() {
+    var i;
+
+    ensureWinFireworksGroup();
+    clearWinFireworksBursts();
+    winFireworksActive = true;
+    winFireworksElapsed = 0;
+    winFireworksSpawnTimer = 0;
+
+    for (i = 0; i < WIN_FIREWORKS_INITIAL_BURSTS; i += 1) {
+        spawnWinFireworkBurst();
+    }
+}
+
+// Updates fireworks particles and spawn cadence.
+function updateWinFireworks(delta) {
+    var i;
+
+    if (!winFireworksGroup) {
+        return;
+    }
+
+    if (gameState === 'win' && winFireworksActive) {
+        winFireworksElapsed += delta;
+        winFireworksSpawnTimer += delta;
+
+        while (winFireworksElapsed <= WIN_FIREWORKS_DURATION && winFireworksSpawnTimer >= WIN_FIREWORKS_BURST_INTERVAL) {
+            winFireworksSpawnTimer -= WIN_FIREWORKS_BURST_INTERVAL;
+            spawnWinFireworkBurst();
+        }
+
+        if (winFireworksElapsed > WIN_FIREWORKS_DURATION) {
+            winFireworksActive = false;
+        }
+    }
+
+    for (i = winFireworksBursts.length - 1; i >= 0; i -= 1) {
+        var burst = winFireworksBursts[i];
+        var positionAttr = burst.points.geometry.getAttribute('position');
+        var positions = positionAttr.array;
+        var lifeRatio;
+        var pointIndex;
+
+        burst.age += delta;
+        lifeRatio = Math.max(0, 1 - (burst.age / burst.life));
+
+        for (pointIndex = 0; pointIndex < positions.length; pointIndex += 3) {
+            burst.velocities[pointIndex + 1] -= burst.gravity * delta;
+            positions[pointIndex] += burst.velocities[pointIndex] * delta;
+            positions[pointIndex + 1] += burst.velocities[pointIndex + 1] * delta;
+            positions[pointIndex + 2] += burst.velocities[pointIndex + 2] * delta;
+        }
+
+        positionAttr.needsUpdate = true;
+        burst.points.material.opacity = lifeRatio;
+
+        if (burst.age >= burst.life) {
+            winFireworksGroup.remove(burst.points);
+            burst.points.geometry.dispose();
+            burst.points.material.dispose();
+            winFireworksBursts.splice(i, 1);
+        }
+    }
 }
 
 // Converts world coordinates into screen coordinates.
@@ -197,6 +412,7 @@ function startOrResumeGame() {
         gameDuration = 0;
     }
     gameState = 'running';
+    stopWinFireworks();
     setStatusMessage('', '', false);
     unfreezeMarioOverlayAnimation();
     clock.getDelta();
@@ -247,12 +463,14 @@ function restartGame() {
     updateMarioOverlayImage();
     syncMarioOverlay();
     setStatusMessage('', '', false);
+    stopWinFireworks();
     clock.getDelta();
     setAllVideoPlayback(true);
     gameDuration = 0;
     if (typeof resetBats === 'function') {
         resetBats();
     }
+    updateHUD();
 }
 
 // Triggers game over.
@@ -263,6 +481,23 @@ function triggerGameOver() {
     currentBackgroundSpeed = runSettings.idle.backgroundSpeed;
     positionGameOverMessage();
     setStatusMessage('Game Over', 'game-over', true);
+    stopWinFireworks();
+    setAllVideoPlayback(false);
+}
+
+// Triggers win state.
+function triggerWin() {
+    gameState = 'win';
+    stopAllInput();
+    runMode = 'idle';
+    currentBackgroundSpeed = runSettings.idle.backgroundSpeed;
+    setStatusMessage('WIN', 'win', true);
+    if (gameStatusOverlay) {
+        gameStatusOverlay.style.left = '50%';
+        gameStatusOverlay.style.top = '7%';
+        gameStatusOverlay.style.transform = 'translate(-50%, 0)';
+    }
+    startWinFireworks();
     setAllVideoPlayback(false);
 }
 
@@ -491,7 +726,7 @@ window.addEventListener('keydown', function(event) {
 
     if (event.key === 'Tab') {
         event.preventDefault();
-        if (gameState === 'gameover') {
+        if (gameState === 'gameover' || gameState === 'win') {
             restartGame();
         }
         return;
@@ -546,6 +781,7 @@ function animateScene() {
         if (gameState === 'gameover') {
             positionGameOverMessage();
         }
+        updateWinFireworks(delta);
         renderer.render(scene, camera);
         requestAnimationFrame(animateScene);
         return;
@@ -586,6 +822,14 @@ function animateScene() {
 
     if (typeof updateBats === 'function') {
         updateBats(delta);
+    }
+
+    updateWinFireworks(delta);
+
+    if (gameState !== 'running') {
+        renderer.render(scene, camera);
+        requestAnimationFrame(animateScene);
+        return;
     }
 
     gameDuration += delta;
