@@ -104,5 +104,9 @@ var resizeScene = function() {
         updateBatsSize();
     }
 
+    if (typeof updateSpidersSize === 'function') {
+        updateSpidersSize();
+    }
+
     renderer.render(scene, camera);
 };

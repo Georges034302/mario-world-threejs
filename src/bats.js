@@ -19,6 +19,7 @@ var BAT_BOTTOM_RIGHT_PATTERN_PROBABILITY = 0.25;
 var BAT_TOP_RIGHT_PATTERN_PROBABILITY = 0.02;
 var BAT_DIAGONAL_EDGE_BAND_RATIO = 0.08;
 var BAT_DIAGONAL_VERTICAL_MAX_RATIO = 0.9;
+var BAT_LEVEL4_DIAGONAL_SPEED_BOOST = 0.25;
 
 // Returns current bat difficulty level.
 function getBatLevel() {
@@ -40,6 +41,30 @@ function getBatSpeedForLevel(level) {
     }
 
     return BAT_BASE_SPEED;
+}
+
+// Returns bat travel speed for a specific spawn pattern and level.
+function getBatTravelSpeed(level, spawnPattern) {
+    var travelSpeed = getBatSpeedForLevel(level);
+
+    if (level >= 4 && spawnPattern !== 'horizontal') {
+        travelSpeed += BAT_LEVEL4_DIAGONAL_SPEED_BOOST;
+    }
+
+    return travelSpeed;
+}
+
+// Returns bat oscillation frequency for a spawned bat.
+function getBatOscillationFrequency(level) {
+    if (level >= 3) {
+        if (Math.random() < 0.5) {
+            return 0.8 + (Math.random() * 0.8);
+        }
+
+        return 2.2 + (Math.random() * 1.8);
+    }
+
+    return 1.2 + (Math.random() * 1.8);
 }
 
 // Returns bat spawn pattern for the current level.
@@ -109,16 +134,29 @@ function getMarioHitbox() {
     };
 }
 
+// Returns Mario body circle for body-to-body hazard collisions.
+function getMarioBodyCircle() {
+    var radius = 0.34;
+
+    if (marioMode === 'super' || marioMode === 'superfly') {
+        radius = 0.39;
+    }
+
+    return {
+        x: marioBaseX,
+        y: marioBaseY + 0.8,
+        radius: radius
+    };
+}
+
 // Checks whether is bat colliding with mario.
 function isBatCollidingWithMario(batX, batY) {
-    var hitbox = getMarioHitbox();
-    var closestX = clamp(batX, hitbox.minX, hitbox.maxX);
-    var closestY = clamp(batY, hitbox.minY, hitbox.maxY);
-    var deltaX = batX - closestX;
-    var deltaY = batY - closestY;
+    var marioBody = getMarioBodyCircle();
+    var deltaX = batX - marioBody.x;
+    var deltaY = batY - marioBody.y;
+    var combinedRadius = BAT_BODY_RADIUS + marioBody.radius;
 
-    // Circle-vs-AABB gives more reliable edge collisions than center-point checks.
-    return (deltaX * deltaX) + (deltaY * deltaY) <= (BAT_BODY_RADIUS * BAT_BODY_RADIUS);
+    return (deltaX * deltaX) + (deltaY * deltaY) <= (combinedRadius * combinedRadius);
 }
 
 // Checks whether is score eligible mode.
@@ -183,7 +221,7 @@ function spawnBat(forcedPattern, forcedLevel) {
     var targetY = startY;
     var diagVelocityX = 0;
     var diagVelocityY = 0;
-    var travelSpeed = getBatSpeedForLevel(level);
+    var travelSpeed = getBatTravelSpeed(level, spawnPattern);
 
     var bat = createBatMesh();
 
@@ -222,7 +260,7 @@ function spawnBat(forcedPattern, forcedLevel) {
         diagVelocityX: diagVelocityX,
         diagVelocityY: diagVelocityY,
         ampY: 0.35 + Math.random() * 0.65,       // vertical oscillation amplitude (0.35–1.0)
-        freqY: 1.2 + Math.random() * 1.8,          // oscillation frequency (1.2–3.0 Hz)
+        freqY: getBatOscillationFrequency(level),  // oscillation frequency varies more at higher levels
         phaseY: Math.random() * Math.PI * 2,        // random phase offset
         ampX: 0.0,                                   // secondary horizontal wobble (unused, keep simple)
         wingPhase: Math.random() * Math.PI * 2,
@@ -311,10 +349,14 @@ function updateBats(delta) {
             ud.alive = false;
             batsGroup.remove(bat);
             batsPool.splice(i, 1);
-            batHitCount += 1;
-            if (batHitCount >= BAT_MAX_HITS) {
-                if (typeof triggerGameOver === 'function') {
-                    triggerGameOver();
+            if (typeof registerMarioHazardHit === 'function') {
+                registerMarioHazardHit();
+            } else {
+                batHitCount += 1;
+                if (batHitCount >= BAT_MAX_HITS) {
+                    if (typeof triggerGameOver === 'function') {
+                        triggerGameOver();
+                    }
                 }
             }
             continue;

@@ -64,6 +64,28 @@ var WIN_FIREWORKS_BURST_INTERVAL = 0.22;
 var WIN_FIREWORKS_INITIAL_BURSTS = 3;
 var WIN_FIREWORKS_MIN_POINTS = 72;
 var WIN_FIREWORKS_POINT_VARIANCE = 40;
+var marioHazardHitCount = 0;
+var MARIO_MAX_LIVES = 3;
+
+// Registers one hazard hit against Mario's shared life pool.
+function registerMarioHazardHit() {
+    if (gameState !== 'running') {
+        return;
+    }
+
+    marioHazardHitCount = Math.min(MARIO_MAX_LIVES, marioHazardHitCount + 1);
+    batHitCount = marioHazardHitCount;
+
+    if (marioHazardHitCount >= MARIO_MAX_LIVES) {
+        triggerGameOver();
+    }
+}
+
+// Resets the shared life pool.
+function resetMarioHazardHits() {
+    marioHazardHitCount = 0;
+    batHitCount = 0;
+}
 
 // Returns the current level for a given score.
 function getLevelForScore(score) {
@@ -142,7 +164,7 @@ function updateHUD() {
 
     score = typeof batScore !== 'undefined' ? batScore : 0;
     level = getLevelForScore(score);
-    health = Math.max(0, 3 - (typeof batHitCount !== 'undefined' ? batHitCount : 0));
+    health = Math.max(0, MARIO_MAX_LIVES - marioHazardHitCount);
     hearts = '';
     for (i = 0; i < 3; i += 1) {
         hearts += i < health ? '\u2665' : '\u2661';
@@ -470,6 +492,10 @@ function restartGame() {
     if (typeof resetBats === 'function') {
         resetBats();
     }
+    if (typeof resetSpiders === 'function') {
+        resetSpiders();
+    }
+    resetMarioHazardHits();
     updateHUD();
 }
 
@@ -481,6 +507,7 @@ function triggerGameOver() {
     currentBackgroundSpeed = runSettings.idle.backgroundSpeed;
     positionGameOverMessage();
     setStatusMessage('Game Over', 'game-over', true);
+    freezeMarioOverlayAnimation();
     stopWinFireworks();
     setAllVideoPlayback(false);
 }
@@ -826,6 +853,10 @@ function animateScene() {
 
     if (typeof updateBats === 'function') {
         updateBats(delta);
+    }
+
+    if (typeof updateSpiders === 'function') {
+        updateSpiders(delta);
     }
 
     updateWinFireworks(delta);

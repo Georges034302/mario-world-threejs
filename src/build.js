@@ -174,6 +174,9 @@ function addShapes() {
     if (typeof createBats === 'function') {
         createBats();
     }
+    if (typeof createSpiders === 'function') {
+        createSpiders();
+    }
     createMarioOverlay();
 
     ghostCurrentX = ghostBaseX;
