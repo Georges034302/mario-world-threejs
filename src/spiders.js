@@ -10,8 +10,8 @@ var spiderLastMarioHitboxMinY = 0;
 
 var SPIDER_BASE_SPEED = 2.8;
 var SPIDER_SPEED_STEP = 0.25;
-var SPIDER_MIN_SPAWN_DELAY = 1;
-var SPIDER_MAX_SPAWN_DELAY = 8;
+var SPIDER_MIN_SPAWN_DELAY = 2;
+var SPIDER_MAX_SPAWN_DELAY = 6;
 var SPIDER_BODY_RADIUS = 0.2;
 var SPIDER_FOOT_GROUND_OFFSET = -0.7;
 var SPIDER_BODY_BOB_AMPLITUDE = 0;
@@ -279,8 +279,9 @@ function createSpiders() {
     spidersGroup = new THREE.Group();
     scene.add(spidersGroup);
     spiderPool = [];
-    spiderSpawnTimer = 0;
     spiderSpawnInterval = getNextSpiderSpawnDelay();
+    // Spawn the first spider immediately once updates begin.
+    spiderSpawnTimer = spiderSpawnInterval;
     spidersViewportSize = getSpidersViewportSize();
     spiderLastMarioBaseY = marioBaseY;
     spiderLastMarioHitboxMinY = getSpiderMarioHitbox().minY;
